@@ -42,7 +42,10 @@ cd ..
 fi
 #UHDM plugin
 export PATH=$INSTALL_PATH/bin:${PATH}
-UHDM_INSTALL_DIR=$INSTALL_PATH make -C $PWD/yosys-symbiflow-plugins/ install -j$(nproc)
+UHDM_INSTALL_DIR=$INSTALL_PATH make -C $PWD/yosys-symbiflow-plugins/systemverilog-plugin install -j$(nproc)
+UHDM_INSTALL_DIR=$INSTALL_PATH make -C $PWD/yosys-symbiflow-plugins/uhdm-plugin install -j$(nproc)
+# XDC plugin is needed to synthesise ibex in the CI
+UHDM_INSTALL_DIR=$INSTALL_PATH make -C $PWD/yosys-symbiflow-plugins/xdc-plugin install -j$(nproc)
 #sv2v
 if [ "$BUILD_SV2V" -eq "1" ]; then
 wget -qO- https://get.haskellstack.org/ | sh -s - -f -d $INSTALL_PATH/bin
