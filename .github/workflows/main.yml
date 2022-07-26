@@ -16,6 +16,7 @@ jobs:
       CXX: g++-9
       CCACHE_DIR: "/root/yosys-uhdm-plugin-integration/yosys-uhdm-plugin-integration/.cache/"
       DEBIAN_FRONTEND: noninteractive
+      PLUGIN_ASAN: 1
 
     steps:
 
@@ -235,6 +236,56 @@ jobs:
         path: |
           **/plot_*.svg
 
+  tests-yosys-valgrind:
+    runs-on: [self-hosted, Linux, X64]
+    container: ubuntu:bionic
+    needs: [build-binaries, generate-matrix-yosys]
+    strategy:
+      matrix:
+        TEST_CASE_YOSYS: ${{ fromJson(needs.generate-matrix-yosys.outputs.matrix) }}
+      fail-fast:
+        false
+    env:
+      CC: gcc-9
+      CXX: g++-9
+      GIT_HTTP_LOW_SPEED_LIMIT: 1
+      GIT_HTTP_LOW_SPEED_TIME: 600
+      DEBIAN_FRONTEND: noninteractive
+      GHA_MACHINE_TYPE: "n2-standard-2"
+      PARSER: surelog
+
+    steps:
+    - name: Install dependencies
+      run: |
+        apt-get update -qq
+        apt install -y software-properties-common
+        add-apt-repository ppa:ubuntu-toolchain-r/test
+        apt-get update -qq
+        apt install -y g++-9 build-essential cmake tclsh ant default-jre swig google-perftools libgoogle-perftools-dev python3 python3-dev uuid uuid-dev tcl-dev flex libfl-dev valgrind
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        fetch-depth: 1
+
+    - name: Download binaries
+      uses: actions/download-artifact@v2
+      with:
+        name: binaries
+
+    # See https://github.com/actions/upload-artifact/issues/38
+    - name: Extract
+      run: tar -xf binaries.tar
+
+    - name: Build & Test (yosys)
+      run: |
+        ./UHDM-integration-tests/.github/ci.sh
+        cat UHDM-integration-tests/build/valgrind.out
+      env:
+        TEST_CASE: ${{ matrix.TEST_CASE_YOSYS }}
+        TARGET: uhdm/yosys/test-ast
+        USE_VALGRIND: 1
+
   tests-vcddiff:
     runs-on: [self-hosted, Linux, X64]
     container: ubuntu:bionic
@@ -314,7 +365,7 @@ jobs:
         apt install -y software-properties-common
         add-apt-repository ppa:ubuntu-toolchain-r/test
         apt-get update -qq
-        apt install -y gcc-9 g++-9 build-essential cmake tclsh ant default-jre swig google-perftools libgoogle-perftools-dev python3 python3-dev uuid uuid-dev tcl-dev flex libfl-dev git python3-pip
+        apt install -y gcc-9 g++-9 build-essential cmake tclsh ant default-jre swig google-perftools libgoogle-perftools-dev python3 python3-dev uuid uuid-dev tcl-dev flex libfl-dev git python3-pip valgrind
         update-alternatives --install /usr/bin/python python /usr/bin/python3 1
         update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
@@ -338,9 +389,11 @@ jobs:
         enable_vivado 2017.2
         pip install virtualenv
         ./UHDM-integration-tests/.github/ci.sh
+        cat UHDM-integration-tests/build/valgrind.out
       env:
         TARGET: uhdm/yosys/synth-ibex-build
         TEST_CASE: tests/ibex
+        USE_VALGRIND: 1
 
     - uses: actions/upload-artifact@v2
       with:
